@@ -1,0 +1,179 @@
+// Vertex Management - database schema
+// Students, subjects (courses), teachers, fee payments, and teacher payouts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+}
+
+enum StudentStatus {
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  ONLINE
+  OTHER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(TEACHER)
+  isActive  Boolean  @default(true)
+  teacher   Teacher?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Teacher {
+  id                       String    @id @default(cuid())
+  userId                   String    @unique
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone                    String?
+  // Default share (%) of student fee for this teacher. Copied to each new student
+  // as the student commissionPercent, which admin can override per student.
+  defaultCommissionPercent Decimal   @default(30) @db.Decimal(5, 2)
+  subjects                 Subject[]
+  students                 Student[]
+  payments                 Payment[]
+  payouts                  Payout[]
+  classSlots               ClassSlot[]
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+}
+
+model Subject {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  teachers    Teacher[]
+  students    Student[]
+  classSlots  ClassSlot[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Student {
+  id                String        @id @default(cuid())
+  name              String
+  fatherName        String?
+  phone             String
+  fatherPhone       String?
+  email             String?
+  address           String?
+  subjectId         String
+  subject           Subject       @relation(fields: [subjectId], references: [id])
+  teacherId         String
+  teacher           Teacher       @relation(fields: [teacherId], references: [id])
+  fee               Decimal       @db.Decimal(12, 2)
+  discount          Decimal       @default(0) @db.Decimal(12, 2)
+  // finalPrice = fee - discount (kept in the DB so reports are simple)
+  finalPrice        Decimal       @db.Decimal(12, 2)
+  // Teacher share (%) of this student fee
+  commissionPercent Decimal       @db.Decimal(5, 2)
+  status            StudentStatus @default(ACTIVE)
+  enrolledAt        DateTime      @default(now())
+  notes             String?
+  // Time slots the student says they are free for, as "HH:MM-HH:MM" keys (see Settings)
+  availableSlots    String[]      @default([])
+  payments          Payment[]
+  classSlots        ClassSlot[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([teacherId])
+  @@index([subjectId])
+  @@index([status])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  studentId         String
+  student           Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  // Snapshot of the teacher and percentage at the time of payment, so that
+  // reassigning a student or changing a percentage later never rewrites history.
+  teacherId         String
+  teacher           Teacher       @relation(fields: [teacherId], references: [id])
+  amount            Decimal       @db.Decimal(12, 2)
+  commissionPercent Decimal       @db.Decimal(5, 2)
+  method            PaymentMethod @default(CASH)
+  note              String?
+  paidAt            DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([paidAt])
+}
+
+// Money actually handed to a teacher (salary / commission withdrawal).
+model Payout {
+  id        String   @id @default(cuid())
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  amount    Decimal  @db.Decimal(12, 2)
+  note      String?
+  paidAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teacherId])
+  @@index([paidAt])
+}
+
+enum Weekday {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+// A recurring class: which teacher teaches which subject, on which days and at what time,
+// and which students attend.
+model ClassSlot {
+  id        String    @id @default(cuid())
+  title     String?
+  teacherId String
+  teacher   Teacher   @relation(fields: [teacherId], references: [id])
+  subjectId String
+  subject   Subject   @relation(fields: [subjectId], references: [id])
+  days      Weekday[]
+  // 24h "HH:MM" strings, e.g. "19:00" - simple to compare and display
+  startTime String
+  endTime   String
+  location  String?
+  notes     String?
+  isActive  Boolean   @default(true)
+  students  Student[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([teacherId])
+  @@index([subjectId])
+}
+
+// Small key/value store for admin-editable settings (e.g. the fixed class time slots).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

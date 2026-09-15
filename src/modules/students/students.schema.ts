@@ -1,0 +1,40 @@
+import { z } from "zod";
+
+export const STUDENT_STATUSES = ["ACTIVE", "COMPLETED", "DROPPED"] as const;
+
+// "HH:MM-HH:MM" availability key, matching the fixed time slots in Settings.
+const slotKeyPattern = /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
+
+export const studentSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100),
+  fatherName: z.string().trim().max(100).optional().nullable(),
+  phone: z.string().trim().min(3, "Phone is required").max(30),
+  fatherPhone: z.string().trim().max(30).optional().nullable(),
+  email: z.string().trim().email().optional().nullable().or(z.literal("")),
+  address: z.string().trim().max(300).optional().nullable(),
+  subjectId: z.string().min(1, "Subject is required"),
+  teacherId: z.string().min(1, "Teacher is required"),
+  fee: z.coerce.number().min(0),
+  discount: z.coerce.number().min(0).default(0),
+  commissionPercent: z.coerce.number().min(0).max(100).optional().nullable(),
+  status: z.enum(STUDENT_STATUSES).default("ACTIVE"),
+  enrolledAt: z.coerce.date().optional(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+  availableSlots: z
+    .array(z.string().regex(slotKeyPattern, "Slot must look like 15:00-16:30"))
+    .max(24)
+    .optional(),
+});
+
+export const updateStudentSchema = studentSchema.partial();
+
+export type StudentInput = z.infer<typeof studentSchema>;
+export type UpdateStudentInput = z.infer<typeof updateStudentSchema>;
+export type StudentStatusValue = (typeof STUDENT_STATUSES)[number];
+
+export interface StudentFilters {
+  teacherId?: string;
+  subjectId?: string;
+  status?: StudentStatusValue;
+  search?: string;
+}
