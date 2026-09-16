@@ -1,15 +1,36 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../database/prisma";
 import { badRequest, notFound } from "../../common/utils/errors";
-import { num, round2, share } from "../../common/utils/money";
-import { studentMoney } from "../finance/finance.service";
+import { num, round2 } from "../../common/utils/money";
+import { assertSharesValid, installmentStatus, studentMoney, type ShareInput } from "../finance/finance.service";
 import type { StudentFilters, StudentInput, UpdateStudentInput } from "./students.schema";
+
+export { getStudent, previewSplit } from "./students.detail";
 
 export const studentInclude = {
   subject: { select: { id: true, name: true } },
   teacher: { select: { id: true, user: { select: { name: true } } } },
-  payments: { select: { amount: true, commissionPercent: true } },
-} as const;
+  payments: { select: { amount: true } },
+  shares: { include: { partner: { select: { id: true, name: true, kind: true } } }, orderBy: { percent: "desc" } },
+  installments: { select: { id: true, dueDate: true, amount: true, paidAmount: true } },
+} as const satisfies Prisma.StudentInclude;
+
+type Loaded = Prisma.StudentGetPayload<{ include: typeof studentInclude }>;
+
+export function shapeStudent(s: Loaded) {
+  const { payments, shares, installments, ...rest } = s;
+  const open = installments
+    .map((i) => ({ ...i, ...installmentStatus(i) }))
+    .filter((i) => i.status !== "PAID")
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  return {
+    ...rest,
+    shares: shares.map((sh) => ({ partnerId: sh.partnerId, partner: sh.partner, percent: num(sh.percent) })),
+    ...studentMoney(s, payments, shares),
+    nextDue: open[0] ? { id: open[0].id, dueDate: open[0].dueDate, remaining: open[0].remaining, status: open[0].status } : null,
+    overdueCount: open.filter((i) => i.status === "OVERDUE").length,
+  };
+}
 
 export async function listStudents(f: StudentFilters) {
   const where: Prisma.StudentWhereInput = {
@@ -27,14 +48,8 @@ export async function listStudents(f: StudentFilters) {
         }
       : {}),
   };
-
-  const students = await prisma.student.findMany({
-    where,
-    include: studentInclude,
-    orderBy: { createdAt: "desc" },
-  });
-
-  const rows = students.map(({ payments, ...s }) => ({ ...s, ...studentMoney(s, payments) }));
+  const students = await prisma.student.findMany({ where, include: studentInclude, orderBy: { createdAt: "desc" } });
+  const rows = students.map(shapeStudent);
   const summary = {
     count: rows.length,
     totalFinalPrice: round2(rows.reduce((a, r) => a + r.finalPrice, 0)),
@@ -44,49 +59,36 @@ export async function listStudents(f: StudentFilters) {
   return { students: rows, summary };
 }
 
-/** Student detail with every payment and its teacher/company split. */
-export async function getStudent(id: string, scopeTeacherId?: string) {
-  const student = await prisma.student.findUnique({
-    where: { id },
-    include: {
-      subject: { select: { id: true, name: true } },
-      teacher: {
-        select: { id: true, defaultCommissionPercent: true, user: { select: { name: true } } },
-      },
-      payments: {
-        include: { teacher: { select: { id: true, user: { select: { name: true } } } } },
-        orderBy: { paidAt: "desc" },
-      },
-      classSlots: {
-        select: {
-          id: true, title: true, days: true, startTime: true, endTime: true, location: true, isActive: true,
-          teacher: { select: { user: { select: { name: true } } } },
-          subject: { select: { name: true } },
-        },
-        orderBy: { startTime: "asc" },
-      },
-    },
-  });
-  if (!student || (scopeTeacherId && student.teacherId !== scopeTeacherId)) {
-    throw notFound("Student not found");
+/** Shares from the request, or the subject defaults when omitted. Company keeps the rest. */
+async function resolveShares(subjectId: string, requested?: ShareInput[]): Promise<ShareInput[]> {
+  let shares = requested;
+  if (!shares) {
+    const defaults = await prisma.subjectShareDefault.findMany({ where: { subjectId } });
+    shares = defaults.map((d) => ({ partnerId: d.partnerId, percent: num(d.percent) }));
   }
-
-  const payments = student.payments.map((p) => {
-    const teacherShare = share(p.amount, p.commissionPercent);
-    return { ...p, teacherShare, companyShare: round2(num(p.amount) - teacherShare) };
-  });
-  return { ...student, payments, ...studentMoney(student, student.payments) };
+  shares = shares.filter((sh) => sh.percent > 0);
+  assertSharesValid(shares);
+  if (shares.length) {
+    const found = await prisma.partner.count({ where: { id: { in: shares.map((sh) => sh.partnerId) } } });
+    if (found !== shares.length) throw badRequest("One of the selected partners does not exist");
+  }
+  return shares;
 }
 
 export async function createStudent(input: StudentInput) {
   if (input.discount > input.fee) throw badRequest("Discount cannot be greater than the fee");
-
   const [teacher, subject] = await Promise.all([
     prisma.teacher.findUnique({ where: { id: input.teacherId } }),
     prisma.subject.findUnique({ where: { id: input.subjectId } }),
   ]);
   if (!teacher) throw badRequest("Selected teacher does not exist");
   if (!subject) throw badRequest("Selected subject does not exist");
+
+  const finalPrice = round2(input.fee - input.discount);
+  const shares = await resolveShares(input.subjectId, input.shares);
+  const installments = input.installments ?? [];
+  const planned = round2(installments.reduce((a, i) => a + i.amount, 0));
+  if (planned > finalPrice) throw badRequest(`Installments add up to ${planned}, more than the final price ${finalPrice}`);
 
   const student = await prisma.student.create({
     data: {
@@ -100,25 +102,21 @@ export async function createStudent(input: StudentInput) {
       teacherId: input.teacherId,
       fee: input.fee,
       discount: input.discount,
-      finalPrice: round2(input.fee - input.discount),
-      // Per-student share defaults to the teacher default; admin may override.
-      commissionPercent: input.commissionPercent ?? num(teacher.defaultCommissionPercent),
+      finalPrice,
       status: input.status,
       enrolledAt: input.enrolledAt ?? new Date(),
       notes: input.notes || null,
       availableSlots: input.availableSlots ?? [],
+      shares: { create: shares.map((sh) => ({ partnerId: sh.partnerId, percent: sh.percent })) },
+      installments: { create: installments.map((i) => ({ dueDate: i.dueDate, amount: i.amount, note: i.note || null })) },
     },
     include: studentInclude,
   });
-  const { payments, ...rest } = student;
-  return { ...rest, ...studentMoney(student, payments) };
+  return shapeStudent(student);
 }
 
 export async function updateStudent(id: string, input: UpdateStudentInput) {
-  const existing = await prisma.student.findUnique({
-    where: { id },
-    include: { payments: { select: { amount: true } } },
-  });
+  const existing = await prisma.student.findUnique({ where: { id }, include: { payments: { select: { amount: true } } } });
   if (!existing) throw notFound("Student not found");
 
   const fee = input.fee ?? num(existing.fee);
@@ -126,9 +124,9 @@ export async function updateStudent(id: string, input: UpdateStudentInput) {
   if (discount > fee) throw badRequest("Discount cannot be greater than the fee");
   const finalPrice = round2(fee - discount);
   const paid = round2(existing.payments.reduce((s, p) => s + num(p.amount), 0));
-  if (finalPrice < paid) {
-    throw badRequest(`Final price (${finalPrice}) cannot be less than the amount already paid (${paid})`);
-  }
+  if (finalPrice < paid) throw badRequest(`Final price (${finalPrice}) cannot be less than the amount already paid (${paid})`);
+
+  const shares = input.shares ? await resolveShares(input.subjectId ?? existing.subjectId, input.shares) : undefined;
 
   const student = await prisma.student.update({
     where: { id },
@@ -141,22 +139,20 @@ export async function updateStudent(id: string, input: UpdateStudentInput) {
       ...(input.address !== undefined ? { address: input.address || null } : {}),
       ...(input.subjectId !== undefined ? { subjectId: input.subjectId } : {}),
       ...(input.teacherId !== undefined ? { teacherId: input.teacherId } : {}),
-      ...(input.commissionPercent != null ? { commissionPercent: input.commissionPercent } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.enrolledAt !== undefined ? { enrolledAt: input.enrolledAt } : {}),
       ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
       ...(input.availableSlots !== undefined ? { availableSlots: input.availableSlots } : {}),
+      ...(shares ? { shares: { deleteMany: {}, create: shares.map((sh) => ({ partnerId: sh.partnerId, percent: sh.percent })) } } : {}),
       fee,
       discount,
       finalPrice,
     },
     include: studentInclude,
   });
-  const { payments, ...rest } = student;
-  return { ...rest, ...studentMoney(student, payments) };
+  return shapeStudent(student);
 }
 
 export async function deleteStudent(id: string) {
-  // Payments cascade-delete with the student (see schema.prisma).
   await prisma.student.delete({ where: { id } });
 }

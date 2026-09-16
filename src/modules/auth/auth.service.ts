@@ -7,7 +7,7 @@ import type { ChangePasswordInput, LoginInput } from "./auth.schema";
 export async function login({ email, password }: LoginInput) {
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
-    include: { teacher: { select: { id: true } } },
+    include: { teacher: { select: { id: true } }, partner: { select: { id: true } } },
   });
   if (!user || !user.isActive) throw unauthorized("Invalid email or password");
 
@@ -22,6 +22,7 @@ export async function login({ email, password }: LoginInput) {
       email: user.email,
       role: user.role,
       teacherId: user.teacher?.id ?? null,
+      partnerId: user.partner?.id ?? null,
     },
   };
 }

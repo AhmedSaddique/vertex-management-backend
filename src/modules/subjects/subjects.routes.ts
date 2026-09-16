@@ -8,4 +8,5 @@ subjectsRouter.use(requireAuth);
 subjectsRouter.get("/", ctrl.list);
 subjectsRouter.post("/", requireAdmin, ctrl.create);
 subjectsRouter.put("/:id", requireAdmin, ctrl.update);
+subjectsRouter.put("/:id/share-defaults", requireAdmin, ctrl.setShareDefaults);
 subjectsRouter.delete("/:id", requireAdmin, ctrl.remove);

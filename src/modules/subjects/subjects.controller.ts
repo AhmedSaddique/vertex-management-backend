@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { param } from "../../common/utils/params";
 import { serialize } from "../../common/utils/money";
-import { subjectSchema, updateSubjectSchema } from "./subjects.schema";
+import { shareDefaultsSchema, subjectSchema, updateSubjectSchema } from "./subjects.schema";
 import * as service from "./subjects.service";
 
 export async function list(_req: Request, res: Response) {
@@ -9,13 +9,15 @@ export async function list(_req: Request, res: Response) {
 }
 
 export async function create(req: Request, res: Response) {
-  const input = subjectSchema.parse(req.body);
-  res.status(201).json(serialize(await service.createSubject(input)));
+  res.status(201).json(serialize(await service.createSubject(subjectSchema.parse(req.body))));
 }
 
 export async function update(req: Request, res: Response) {
-  const input = updateSubjectSchema.parse(req.body);
-  res.json(serialize(await service.updateSubject(param(req), input)));
+  res.json(serialize(await service.updateSubject(param(req), updateSubjectSchema.parse(req.body))));
+}
+
+export async function setShareDefaults(req: Request, res: Response) {
+  res.json(serialize(await service.setShareDefaults(param(req), shareDefaultsSchema.parse(req.body))));
 }
 
 export async function remove(req: Request, res: Response) {

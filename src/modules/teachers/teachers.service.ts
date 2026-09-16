@@ -1,18 +1,19 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../../database/prisma";
 import { conflict, notFound } from "../../common/utils/errors";
-import { share } from "../../common/utils/money";
-import { monthlyBreakdown, studentMoney, teacherTotals } from "../finance/finance.service";
+import { partnerTotals } from "../finance/finance.service";
+import { ensureTeacherPartner, getPartnerSummary } from "../partners/partners.service";
 import type { CreateTeacherInput, UpdateTeacherInput } from "./teachers.schema";
 
 export const teacherInclude = {
   user: { select: { id: true, name: true, email: true, isActive: true } },
+  partner: { select: { id: true, name: true, isActive: true } },
   subjects: { select: { id: true, name: true } },
-  _count: { select: { students: true } },
+  _count: { select: { students: true, classSlots: true } },
 } as const;
 
-async function withTotals<T extends { id: string }>(teacher: T) {
-  return { ...teacher, totals: await teacherTotals(teacher.id) };
+async function withTotals<T extends { partner: { id: string } | null }>(teacher: T) {
+  return { ...teacher, totals: teacher.partner ? await partnerTotals(teacher.partner.id) : null };
 }
 
 export async function listTeachers(onlyId?: string) {
@@ -31,36 +32,28 @@ export async function getTeacher(id: string) {
 }
 
 export async function createTeacher(input: CreateTeacherInput) {
-  const teacher = await prisma.teacher.create({
+  const created = await prisma.teacher.create({
     data: {
       phone: input.phone ?? null,
-      defaultCommissionPercent: input.defaultCommissionPercent,
       subjects: { connect: input.subjectIds.map((id) => ({ id })) },
       user: {
-        create: {
-          name: input.name,
-          email: input.email.toLowerCase(),
-          password: await bcrypt.hash(input.password, 10),
-          role: "TEACHER",
-        },
+        create: { name: input.name, email: input.email.toLowerCase(), password: await bcrypt.hash(input.password, 10), role: "TEACHER" },
       },
     },
-    include: teacherInclude,
   });
-  return withTotals(teacher);
+  // Every teacher also gets a partner account so they can receive a share of fees.
+  await ensureTeacherPartner(created, input.name);
+  return getTeacher(created.id);
 }
 
 export async function updateTeacher(id: string, input: UpdateTeacherInput) {
-  const existing = await prisma.teacher.findUnique({ where: { id } });
+  const existing = await prisma.teacher.findUnique({ where: { id }, include: { user: true } });
   if (!existing) throw notFound("Teacher not found");
 
-  const teacher = await prisma.teacher.update({
+  await prisma.teacher.update({
     where: { id },
     data: {
       ...(input.phone !== undefined ? { phone: input.phone } : {}),
-      ...(input.defaultCommissionPercent !== undefined
-        ? { defaultCommissionPercent: input.defaultCommissionPercent }
-        : {}),
       ...(input.subjectIds ? { subjects: { set: input.subjectIds.map((sid) => ({ id: sid })) } } : {}),
       user: {
         update: {
@@ -71,62 +64,35 @@ export async function updateTeacher(id: string, input: UpdateTeacherInput) {
         },
       },
     },
-    include: teacherInclude,
   });
-  return withTotals(teacher);
+  await ensureTeacherPartner(existing, input.name ?? existing.user.name, input.isActive ?? existing.user.isActive);
+  return getTeacher(id);
 }
 
 export async function deleteTeacher(id: string) {
   const teacher = await prisma.teacher.findUnique({
     where: { id },
-    include: { _count: { select: { students: true, payments: true, payouts: true } } },
+    include: {
+      _count: { select: { students: true, payments: true, classSlots: true } },
+      partner: { include: { _count: { select: { studentShares: true, paymentShares: true, payouts: true } } } },
+    },
   });
   if (!teacher) throw notFound("Teacher not found");
   const c = teacher._count;
-  if (c.students > 0 || c.payments > 0 || c.payouts > 0) {
-    throw conflict("This teacher has students, payments or payouts linked. Deactivate the account instead.");
+  const p = teacher.partner?._count;
+  if (c.students > 0 || c.payments > 0 || c.classSlots > 0 || (p && (p.studentShares > 0 || p.paymentShares > 0 || p.payouts > 0))) {
+    throw conflict("This teacher has students, classes, payments or shares linked. Deactivate the account instead.");
   }
-  // Deleting the user cascades to the teacher row.
-  await prisma.user.delete({ where: { id: teacher.userId } });
+  await prisma.$transaction([
+    ...(teacher.partner ? [prisma.partner.delete({ where: { id: teacher.partner.id } })] : []),
+    prisma.user.delete({ where: { id: teacher.userId } }),
+  ]);
 }
 
+/** The teacher's money page is their partner account. */
 export async function getTeacherSummary(teacherId: string) {
-  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: teacherInclude });
+  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: { partner: { select: { id: true } } } });
   if (!teacher) throw notFound("Teacher not found");
-
-  const [totals, students, payouts, recentPayments, monthly] = await Promise.all([
-    teacherTotals(teacherId),
-    prisma.student.findMany({
-      where: { teacherId },
-      include: {
-        subject: { select: { id: true, name: true } },
-        payments: { select: { amount: true, commissionPercent: true, teacherId: true } },
-      },
-      orderBy: { enrolledAt: "desc" },
-    }),
-    prisma.payout.findMany({ where: { teacherId }, orderBy: { paidAt: "desc" } }),
-    prisma.payment.findMany({
-      where: { teacherId },
-      include: { student: { select: { id: true, name: true } } },
-      orderBy: { paidAt: "desc" },
-      take: 15,
-    }),
-    monthlyBreakdown(6, teacherId),
-  ]);
-
-  const studentRows = students.map(({ payments, ...s }) => {
-    const own = payments.filter((p) => p.teacherId === teacherId);
-    return {
-      ...s,
-      ...studentMoney(s, payments),
-      teacherShareEarned: studentMoney(s, own).teacherShareEarned,
-    };
-  });
-
-  const paymentRows = recentPayments.map((p) => ({
-    ...p,
-    teacherShare: share(p.amount, p.commissionPercent),
-  }));
-
-  return { teacher, totals, students: studentRows, payouts, recentPayments: paymentRows, monthly };
+  if (!teacher.partner) throw notFound("This teacher has no partner account yet");
+  return getPartnerSummary(teacher.partner.id);
 }

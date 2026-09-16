@@ -7,5 +7,10 @@ export const subjectSchema = z.object({
 
 export const updateSubjectSchema = subjectSchema.partial();
 
+export const shareDefaultsSchema = z.object({
+  shares: z.array(z.object({ partnerId: z.string().min(1), percent: z.coerce.number().min(0).max(100) })).max(20),
+});
+
 export type SubjectInput = z.infer<typeof subjectSchema>;
 export type UpdateSubjectInput = z.infer<typeof updateSubjectSchema>;
+export type ShareDefaultsInput = z.infer<typeof shareDefaultsSchema>;

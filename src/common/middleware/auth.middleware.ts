@@ -10,6 +10,7 @@ export interface AuthUser {
   email: string;
   role: "ADMIN" | "TEACHER";
   teacherId: string | null;
+  partnerId: string | null;
 }
 
 declare global {
@@ -45,7 +46,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
 
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    include: { teacher: { select: { id: true } } },
+    include: { teacher: { select: { id: true } }, partner: { select: { id: true } } },
   });
   if (!user || !user.isActive) {
     throw unauthorized("Account not found or disabled");
@@ -57,6 +58,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     email: user.email,
     role: user.role,
     teacherId: user.teacher?.id ?? null,
+    partnerId: user.partner?.id ?? null,
   };
   next();
 }
@@ -71,10 +73,7 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
  * Teachers may only access their own teacher record. Admins may access any.
  * Returns the teacherId the request is allowed to read (undefined = all, admin only).
  */
-export function resolveTeacherScope(
-  req: Request,
-  requestedTeacherId?: string | null,
-): string | undefined {
+export function resolveTeacherScope(req: Request, requestedTeacherId?: string | null): string | undefined {
   if (!req.user) throw unauthorized();
   if (req.user.role === "ADMIN") return requestedTeacherId ?? undefined;
   if (!req.user.teacherId) throw forbidden("No teacher profile linked to this account");
@@ -82,4 +81,15 @@ export function resolveTeacherScope(
     throw forbidden("You can only view your own records");
   }
   return req.user.teacherId;
+}
+
+/** Same idea for partner (fee share) accounts: non-admins only see their own partner account. */
+export function resolvePartnerScope(req: Request, requestedPartnerId?: string | null): string | undefined {
+  if (!req.user) throw unauthorized();
+  if (req.user.role === "ADMIN") return requestedPartnerId ?? undefined;
+  if (!req.user.partnerId) throw forbidden("No partner account linked to this login");
+  if (requestedPartnerId && requestedPartnerId !== req.user.partnerId) {
+    throw forbidden("You can only view your own account");
+  }
+  return req.user.partnerId;
 }

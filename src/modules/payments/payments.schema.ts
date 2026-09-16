@@ -8,6 +8,10 @@ export const createPaymentSchema = z.object({
   method: z.enum(PAYMENT_METHODS).default("CASH"),
   note: z.string().trim().max(500).optional().nullable(),
   paidAt: z.coerce.date().optional(),
+  // Apply the payment to a promised installment. If it does not cover it fully and
+  // nextDueDate is given, the remainder is moved to a new installment on that date.
+  installmentId: z.string().optional().nullable(),
+  nextDueDate: z.coerce.date().optional().nullable(),
 });
 
 export const updatePaymentSchema = z.object({
@@ -15,7 +19,6 @@ export const updatePaymentSchema = z.object({
   method: z.enum(PAYMENT_METHODS).optional(),
   note: z.string().trim().max(500).optional().nullable(),
   paidAt: z.coerce.date().optional(),
-  commissionPercent: z.coerce.number().min(0).max(100).optional(),
 });
 
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
