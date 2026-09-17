@@ -16,7 +16,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo": "cross-env SEED_DEMO_DATA=true tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts"
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma generate && prisma migrate deploy"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

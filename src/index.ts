@@ -8,6 +8,8 @@ async function main() {
   app.listen(env.port, () => {
     console.log(`Vertex Management API listening on http://localhost:${env.port}`);
     console.log(`Allowed frontend origins: ${env.corsOrigins.join(", ")}`);
+    if (!env.databaseConfigured) console.warn("DATABASE_URL is not set");
+    if (env.isProd && env.jwtSecretIsDefault) console.warn("JWT_SECRET is not set - using an insecure default");
   });
 }
 

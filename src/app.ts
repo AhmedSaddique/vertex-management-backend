@@ -3,6 +3,7 @@ import cors from "cors";
 import morgan from "morgan";
 import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./common/middleware/error.middleware";
+import { isAllowedOrigin } from "./common/utils/origin";
 import { authRouter } from "./modules/auth/auth.routes";
 import { subjectsRouter } from "./modules/subjects/subjects.routes";
 import { teachersRouter } from "./modules/teachers/teachers.routes";
@@ -22,7 +23,7 @@ export function createApp() {
   app.disable("x-powered-by");
   app.use(
     cors({
-      origin: (origin, cb) => cb(null, !origin || env.corsOrigins.includes(origin)),
+      origin: (origin, cb) => cb(null, !origin || isAllowedOrigin(origin, env.corsOrigins)),
       credentials: true,
     }),
   );
@@ -30,7 +31,15 @@ export function createApp() {
   if (!env.isProd) app.use(morgan("dev"));
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, service: "vertex-management-api", time: new Date().toISOString() });
+    res.json({
+      ok: true,
+      service: "vertex-management-api",
+      time: new Date().toISOString(),
+      env: env.nodeEnv,
+      database: env.databaseConfigured ? "configured" : "MISSING - set DATABASE_URL",
+      jwt: env.jwtSecretIsDefault ? "default secret - set JWT_SECRET" : "configured",
+      corsOrigins: env.corsOrigins,
+    });
   });
 
   // Feature modules (src/modules/<name>/): routes -> controller -> service -> Prisma
