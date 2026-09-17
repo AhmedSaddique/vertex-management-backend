@@ -5,6 +5,7 @@ import morgan from "morgan";
 import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./common/middleware/error.middleware";
 import { isAllowedOrigin } from "./common/utils/origin";
+import { prisma } from "./database/prisma";
 import { authRouter } from "./modules/auth/auth.routes";
 import { subjectsRouter } from "./modules/subjects/subjects.routes";
 import { teachersRouter } from "./modules/teachers/teachers.routes";
@@ -42,13 +43,29 @@ export function createApp() {
   app.get("/", info);
   app.get("/api", info);
 
-  app.get("/api/health", (_req, res) => {
+  // Reports configuration and whether the database is reachable and seeded, so a broken
+  // deployment can be diagnosed without reading server logs.
+  app.get("/api/health", async (_req, res) => {
+    let database = env.databaseConfigured ? "configured" : "MISSING - set DATABASE_URL";
+    let seeded: boolean | null = null;
+    if (env.databaseConfigured) {
+      try {
+        seeded = (await prisma.user.count()) > 0;
+        database = "connected";
+      } catch (err) {
+        // Only the Prisma error code, never the message: it can contain the database host.
+        const code = (err as { code?: string }).code;
+        database = code ? `unreachable (${code})` : "unreachable";
+      }
+    }
     res.json({
       ok: true,
       service: "vertex-management-api",
       time: new Date().toISOString(),
       env: env.nodeEnv,
-      database: env.databaseConfigured ? "configured" : "MISSING - set DATABASE_URL",
+      database,
+      databaseFrom: env.databaseUrlFrom ?? "none",
+      accounts: seeded === null ? "unknown" : seeded ? "present" : "NONE - run the seed",
       jwt: env.jwtSecretIsDefault ? "default secret - set JWT_SECRET" : "configured",
       corsOrigins: env.corsOrigins,
     });

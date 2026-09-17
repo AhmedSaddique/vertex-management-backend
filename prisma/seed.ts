@@ -1,8 +1,8 @@
+// Loads .env and resolves DATABASE_URL (including alias variable names) before the client.
+import "../src/config/env";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import dotenv from "dotenv";
 
-dotenv.config();
 const prisma = new PrismaClient();
 
 async function upsertSubject(name: string, description: string) {
