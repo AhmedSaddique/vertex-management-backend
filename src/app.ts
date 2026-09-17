@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -30,6 +31,17 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
   if (!env.isProd) app.use(morgan("dev"));
 
+  const info = (_req: express.Request, res: express.Response) => {
+    res.json({
+      ok: true,
+      service: "vertex-management-api",
+      health: "/api/health",
+      endpoints: ["/api/auth/login", "/api/students", "/api/payments", "/api/partners", "/api/expenses", "/api/installments/due", "/api/schedule", "/api/dashboard"],
+    });
+  };
+  app.get("/", info);
+  app.get("/api", info);
+
   app.get("/api/health", (_req, res) => {
     res.json({
       ok: true,
@@ -59,4 +71,20 @@ export function createApp() {
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;
+}
+
+/**
+ * Default export for serverless hosting (Vercel).
+ *
+ * Vercel bundles api/index.ts together with the modules it imports, and can resolve this
+ * file as the function entry point. Without a default export that request fails with
+ * "Invalid export found in module src/app.js", so export the app as a request handler here
+ * too. The app is created once per warm instance.
+ */
+let cachedApp: ReturnType<typeof createApp> | undefined;
+
+export default function handler(req: IncomingMessage, res: ServerResponse) {
+  cachedApp ??= createApp();
+  const callable = cachedApp as unknown as (a: IncomingMessage, b: ServerResponse) => void;
+  return callable(req, res);
 }
