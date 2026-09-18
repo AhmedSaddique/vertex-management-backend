@@ -6,7 +6,7 @@ import { installmentStatus, splitAmount } from "../finance/finance.service";
 import type { CreatePaymentInput, PaymentFilters, UpdatePaymentInput } from "./payments.schema";
 
 export const paymentInclude = {
-  student: { select: { id: true, admissionNo: true, name: true, phone: true, subject: { select: { name: true } } } },
+  student: { select: { id: true, admissionNo: true, name: true, phone: true, classMode: true, subject: { select: { name: true } } } },
   teacher: { select: { id: true, user: { select: { name: true } } } },
   installment: { select: { id: true, dueDate: true, amount: true, paidAmount: true } },
   shares: { include: { partner: { select: { id: true, name: true } } } },

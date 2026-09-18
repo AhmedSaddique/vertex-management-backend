@@ -7,7 +7,7 @@ export const slotInclude = {
   teacher: { select: { id: true, phone: true, user: { select: { name: true, email: true } } } },
   subject: { select: { id: true, name: true } },
   students: {
-    select: { id: true, admissionNo: true, name: true, fatherName: true, phone: true, fatherPhone: true, email: true, status: true, teacherId: true, availableSlots: true },
+    select: { id: true, admissionNo: true, name: true, fatherName: true, phone: true, fatherPhone: true, email: true, status: true, classMode: true, teacherId: true, availableSlots: true },
     orderBy: { name: "asc" },
   },
 } as const satisfies Prisma.ClassSlotInclude;

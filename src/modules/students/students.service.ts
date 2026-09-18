@@ -42,6 +42,7 @@ export async function listStudents(f: StudentFilters) {
     ...(f.teacherId ? { teacherId: f.teacherId } : {}),
     ...(f.subjectId ? { subjectId: f.subjectId } : {}),
     ...(f.status ? { status: f.status } : {}),
+    ...(f.classMode ? { classMode: f.classMode } : {}),
     ...(search
       ? {
           OR: [
@@ -110,6 +111,7 @@ export async function createStudent(input: StudentInput) {
       discount: input.discount,
       finalPrice,
       status: input.status,
+      classMode: input.classMode,
       enrolledAt: input.enrolledAt ?? new Date(),
       notes: input.notes || null,
       availableSlots: input.availableSlots ?? [],
@@ -146,6 +148,7 @@ export async function updateStudent(id: string, input: UpdateStudentInput) {
       ...(input.subjectId !== undefined ? { subjectId: input.subjectId } : {}),
       ...(input.teacherId !== undefined ? { teacherId: input.teacherId } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.classMode !== undefined ? { classMode: input.classMode } : {}),
       ...(input.enrolledAt !== undefined ? { enrolledAt: input.enrolledAt } : {}),
       ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
       ...(input.availableSlots !== undefined ? { availableSlots: input.availableSlots } : {}),

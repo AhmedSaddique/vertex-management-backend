@@ -39,6 +39,13 @@ enum Weekday {
   SUN
 }
 
+// How a student attends: in person, remotely, or a mix of both.
+enum ClassMode {
+  PHYSICAL
+  ONLINE
+  HYBRID
+}
+
 enum PartnerKind {
   TEACHER
   MANAGEMENT
@@ -133,6 +140,7 @@ model Student {
   // finalPrice = fee - discount
   finalPrice     Decimal        @db.Decimal(12, 2)
   status         StudentStatus  @default(ACTIVE)
+  classMode      ClassMode      @default(PHYSICAL)
   enrolledAt     DateTime       @default(now())
   notes          String?
   // Time slots the student is free for, as "HH:MM-HH:MM" keys (see Settings)

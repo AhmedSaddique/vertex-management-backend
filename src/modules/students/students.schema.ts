@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const STUDENT_STATUSES = ["ACTIVE", "COMPLETED", "DROPPED"] as const;
+export const CLASS_MODES = ["PHYSICAL", "ONLINE", "HYBRID"] as const;
 
 // "HH:MM-HH:MM" availability key, matching the fixed time slots in Settings.
 const slotKeyPattern = /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
@@ -28,6 +29,7 @@ export const studentSchema = z.object({
   fee: z.coerce.number().min(0),
   discount: z.coerce.number().min(0).default(0),
   status: z.enum(STUDENT_STATUSES).default("ACTIVE"),
+  classMode: z.enum(CLASS_MODES).default("PHYSICAL"),
   enrolledAt: z.coerce.date().optional(),
   notes: z.string().trim().max(1000).optional().nullable(),
   availableSlots: z
@@ -45,10 +47,12 @@ export const updateStudentSchema = studentSchema.partial();
 export type StudentInput = z.infer<typeof studentSchema>;
 export type UpdateStudentInput = z.infer<typeof updateStudentSchema>;
 export type StudentStatusValue = (typeof STUDENT_STATUSES)[number];
+export type ClassModeValue = (typeof CLASS_MODES)[number];
 
 export interface StudentFilters {
   teacherId?: string;
   subjectId?: string;
   status?: StudentStatusValue;
+  classMode?: ClassModeValue;
   search?: string;
 }

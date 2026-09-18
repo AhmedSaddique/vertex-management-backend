@@ -84,7 +84,7 @@ export async function getPartnerSummary(partnerId: string) {
       include: {
         student: {
           select: {
-            id: true, admissionNo: true, name: true, phone: true, status: true, finalPrice: true, enrolledAt: true,
+            id: true, admissionNo: true, name: true, phone: true, status: true, classMode: true, finalPrice: true, enrolledAt: true,
             subject: { select: { id: true, name: true } },
             teacher: { select: { id: true, user: { select: { name: true } } } },
             payments: { select: { amount: true } },

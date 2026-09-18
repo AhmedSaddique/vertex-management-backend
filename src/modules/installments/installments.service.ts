@@ -5,7 +5,7 @@ import { installmentStatus } from "../finance/finance.service";
 import type { CreateInstallmentInput, UpdateInstallmentInput } from "./installments.schema";
 
 const studentSelect = {
-  id: true, admissionNo: true, name: true, phone: true, fatherPhone: true, teacherId: true, status: true,
+  id: true, admissionNo: true, name: true, phone: true, fatherPhone: true, teacherId: true, status: true, classMode: true,
   subject: { select: { name: true } },
   teacher: { select: { user: { select: { name: true } } } },
 } as const;
