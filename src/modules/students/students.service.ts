@@ -3,6 +3,7 @@ import { prisma } from "../../database/prisma";
 import { badRequest, notFound } from "../../common/utils/errors";
 import { num, round2 } from "../../common/utils/money";
 import { assertSharesValid, installmentStatus, studentMoney, type ShareInput } from "../finance/finance.service";
+import { notifyEnrollment } from "../mail/mail.service";
 import type { StudentFilters, StudentInput, UpdateStudentInput } from "./students.schema";
 
 export { getStudent, previewSplit } from "./students.detail";
@@ -120,7 +121,10 @@ export async function createStudent(input: StudentInput) {
     },
     include: studentInclude,
   });
-  return shapeStudent(student);
+
+  // Confirmation to the student and a copy to the team. Never fails the enrollment.
+  const notification = await notifyEnrollment(student.id);
+  return { ...shapeStudent(student), notification };
 }
 
 export async function updateStudent(id: string, input: UpdateStudentInput) {

@@ -6,6 +6,7 @@ import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./common/middleware/error.middleware";
 import { isAllowedOrigin } from "./common/utils/origin";
 import { prisma } from "./database/prisma";
+import { mailStatus } from "./modules/mail/mail.service";
 import { authRouter } from "./modules/auth/auth.routes";
 import { subjectsRouter } from "./modules/subjects/subjects.routes";
 import { teachersRouter } from "./modules/teachers/teachers.routes";
@@ -67,6 +68,7 @@ export function createApp() {
       databaseFrom: env.databaseUrlFrom ?? "none",
       accounts: seeded === null ? "unknown" : seeded ? "present" : "NONE - run the seed",
       jwt: env.jwtSecretIsDefault ? "default secret - set JWT_SECRET" : "configured",
+      mail: mailStatus(),
       corsOrigins: env.corsOrigins,
     });
   });

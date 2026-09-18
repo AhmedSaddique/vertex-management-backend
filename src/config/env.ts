@@ -34,6 +34,42 @@ function resolveDatabaseUrl(): string | undefined {
 // Only the variable name is kept, never the connection string itself.
 const databaseUrlFrom = resolveDatabaseUrl();
 
+const trimTrailingSlashes = (value: string) => {
+  let out = value;
+  while (out.endsWith("/")) out = out.slice(0, -1);
+  return out;
+};
+
+const list = (value: string | undefined) =>
+  (value ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+const smtpHost = process.env.SMTP_HOST?.trim() ?? "";
+const smtpUser = process.env.SMTP_USER?.trim() ?? "";
+const smtpPass = process.env.SMTP_PASS ?? "";
+// "json" builds the messages without sending them, for local checks.
+const mailDriver = (process.env.MAIL_DRIVER?.trim() || "smtp") as "smtp" | "json";
+
+const mail = {
+  driver: mailDriver,
+  host: smtpHost,
+  port: Number(process.env.SMTP_PORT ?? 587),
+  // Port 465 is implicit TLS; 587 upgrades with STARTTLS.
+  secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : Number(process.env.SMTP_PORT ?? 587) === 465,
+  user: smtpUser,
+  pass: smtpPass,
+  from: process.env.MAIL_FROM?.trim() || (smtpUser ? `Vertex Management <${smtpUser}>` : ""),
+  replyTo: process.env.MAIL_REPLY_TO?.trim() || undefined,
+  // Everyone on the team who should get a copy of enrollments and payments.
+  notify: list(process.env.NOTIFY_EMAILS || "ahmed.saddique12@gmail.com"),
+  currency: process.env.CURRENCY?.trim() || "Rs",
+  // Where a receipt can be viewed, used for a link in the team copy.
+  appUrl: trimTrailingSlashes(process.env.APP_URL?.trim() || "https://vertexmanagement.vercel.app"),
+  configured: mailDriver === "json" || Boolean(smtpHost && smtpUser && smtpPass),
+};
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 5000),
@@ -46,5 +82,6 @@ export const env = {
     .split(",")
     .map((o) => o.trim().replace(/\/+$/, ""))
     .filter(Boolean),
+  mail,
   isProd: process.env.NODE_ENV === "production",
 };

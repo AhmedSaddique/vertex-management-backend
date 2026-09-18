@@ -3,6 +3,7 @@ import { prisma } from "../../database/prisma";
 import { badRequest, notFound } from "../../common/utils/errors";
 import { num, round2 } from "../../common/utils/money";
 import { installmentStatus, splitAmount } from "../finance/finance.service";
+import { notifyPayment } from "../mail/mail.service";
 import type { CreatePaymentInput, PaymentFilters, UpdatePaymentInput } from "./payments.schema";
 
 export const paymentInclude = {
@@ -58,7 +59,7 @@ export async function createPayment(input: CreatePaymentInput) {
   if (input.installmentId && !installment) throw badRequest("Installment does not belong to this student");
   const split = splitAmount(input.amount, student.shares);
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.create({
       data: {
         studentId: student.id,
@@ -94,7 +95,11 @@ export async function createPayment(input: CreatePaymentInput) {
       remaining: round2(remaining - input.amount),
       nextInstallment: nextInstallment ? { ...nextInstallment, ...installmentStatus(nextInstallment) } : null,
     };
-  });
+  }, { maxWait: 15000, timeout: 30000 });
+
+  // Sent after the transaction commits so the email reflects the saved balances.
+  const notification = await notifyPayment(result.payment.id);
+  return { ...result, notification };
 }
 
 export async function updatePayment(id: string, input: UpdatePaymentInput) {
@@ -132,7 +137,7 @@ export async function updatePayment(id: string, input: UpdatePaymentInput) {
       include: paymentInclude,
     });
     return shapePayment(updated);
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 export async function deletePayment(id: string) {
@@ -144,5 +149,5 @@ export async function deletePayment(id: string) {
       if (inst) await tx.installment.update({ where: { id: inst.id }, data: { paidAmount: Math.max(0, round2(num(inst.paidAmount) - num(payment.amount))) } });
     }
     await tx.payment.delete({ where: { id } });
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
