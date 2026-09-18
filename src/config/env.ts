@@ -2,16 +2,10 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Local frontend + the production frontend on Vercel. Override with CORS_ORIGIN (comma separated,
 // "*" wildcards allowed, e.g. https://vertex-management-frontend-*.vercel.app for preview builds).
 const DEFAULT_CORS = "http://localhost:3000,https://vertexmanagement.vercel.app";
 
-/**
- * Prisma reads process.env.DATABASE_URL (see prisma/schema.prisma). Hosting integrations and
- * custom setups often supply the connection string under a different name, so accept the
- * common aliases and copy the first match into DATABASE_URL before any client is created.
- * POSTGRES_PRISMA_URL comes first because Vercel Postgres marks it as the pooled, Prisma-ready one.
- */
+
 const DATABASE_URL_ALIASES = [
   "DATABASE_URL",
   "POSTGRES_PRISMA_URL",
