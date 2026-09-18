@@ -84,7 +84,7 @@ export async function getPartnerSummary(partnerId: string) {
       include: {
         student: {
           select: {
-            id: true, name: true, phone: true, status: true, finalPrice: true, enrolledAt: true,
+            id: true, admissionNo: true, name: true, phone: true, status: true, finalPrice: true, enrolledAt: true,
             subject: { select: { id: true, name: true } },
             teacher: { select: { id: true, user: { select: { name: true } } } },
             payments: { select: { amount: true } },
@@ -96,7 +96,7 @@ export async function getPartnerSummary(partnerId: string) {
     prisma.payout.findMany({ where: { partnerId }, orderBy: { paidAt: "desc" } }),
     prisma.paymentShare.findMany({
       where: { partnerId },
-      include: { payment: { select: { id: true, amount: true, paidAt: true, method: true, student: { select: { id: true, name: true } } } } },
+      include: { payment: { select: { id: true, amount: true, paidAt: true, method: true, student: { select: { id: true, admissionNo: true, name: true } } } } },
       orderBy: { payment: { paidAt: "desc" } },
       take: 15,
     }),

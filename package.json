@@ -6,19 +6,20 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate && tsc -p tsconfig.json",
+    "build": "node scripts/prisma.mjs generate && tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prisma:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:push": "prisma db push",
+    "prisma:generate": "node scripts/prisma.mjs generate",
+    "db:migrate": "node scripts/prisma.mjs migrate dev",
+    "db:deploy": "node scripts/prisma.mjs migrate deploy",
+    "db:push": "node scripts/prisma.mjs db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo": "cross-env SEED_DEMO_DATA=true tsx prisma/seed.ts",
-    "db:studio": "prisma studio",
-    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
-    "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && prisma migrate deploy && tsx prisma/seed.ts"
+    "db:studio": "node scripts/prisma.mjs studio",
+    "db:setup": "node scripts/prisma.mjs migrate deploy && tsx prisma/seed.ts",
+    "postinstall": "node scripts/prisma.mjs generate",
+    "vercel-build": "node scripts/prisma.mjs generate && node scripts/prisma.mjs migrate deploy && tsx prisma/seed.ts",
+    "db:status": "node scripts/prisma.mjs migrate status"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

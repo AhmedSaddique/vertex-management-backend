@@ -33,17 +33,23 @@ export function shapeStudent(s: Loaded) {
 }
 
 export async function listStudents(f: StudentFilters) {
+  const search = f.search?.trim();
+  // A numeric search also matches the admission number, e.g. "1002".
+  const admissionNo =
+    search && search !== "" && Number.isInteger(Number(search)) ? Number(search) : undefined;
+
   const where: Prisma.StudentWhereInput = {
     ...(f.teacherId ? { teacherId: f.teacherId } : {}),
     ...(f.subjectId ? { subjectId: f.subjectId } : {}),
     ...(f.status ? { status: f.status } : {}),
-    ...(f.search
+    ...(search
       ? {
           OR: [
-            { name: { contains: f.search, mode: "insensitive" } },
-            { fatherName: { contains: f.search, mode: "insensitive" } },
-            { phone: { contains: f.search } },
-            { email: { contains: f.search, mode: "insensitive" } },
+            { name: { contains: search, mode: "insensitive" } },
+            { fatherName: { contains: search, mode: "insensitive" } },
+            { phone: { contains: search } },
+            { email: { contains: search, mode: "insensitive" } },
+            ...(admissionNo !== undefined ? [{ admissionNo }] : []),
           ],
         }
       : {}),
