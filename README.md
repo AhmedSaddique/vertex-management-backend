@@ -99,15 +99,26 @@ Two events send email, each as a student copy and a team copy:
 - `MAIL_DRIVER=json` builds the messages and logs them instead of delivering, for local checks.
 - A student only gets their copy if their record has an email address.
 
+## Trading payouts
+
+Income the academy earns from trading, kept separate from student fees. Each payout is split at the
+moment it is recorded: by default 25% to each of the three members and 25% to the company. The split
+comes from `TradingShareDefault` and can be changed per payout. Member shares add to their payable
+balance; the company share adds to company income. Editing an amount re-splits it, deleting reverses it.
+Admin only: `GET/POST /api/trading`, `PUT/DELETE /api/trading/:id`, `GET/PUT /api/trading/defaults`.
+
 ## Money rules
 
 - Final price = fee - discount. Remaining = final price - payments.
+- **Course policy: every member takes 20% of every course and the company keeps 40%.** The split is
+  copied to each student on enrollment and can still be changed per student.
 - **Partners** are everyone who receives a share of fees: teachers (Hamza, Uzair) and management (Ahmad).
   Each **subject has a default split** (Forex/Crypto: Hamza 30, Uzair 30, Ahmad 20; Binary: Uzair 50, Ahmad 20).
   When a student is added the split is copied to the student and can be changed per student.
   **Whatever is not given to partners stays with the company.**
 - Every payment is split at that moment into PaymentShare rows (snapshot), so later changes never rewrite history.
-- Partner payable balance = earned share - payouts. Company balance = company share - expenses.
+- Partner payable balance = (course share + trading share) - payouts.
+- Company income = company share of fees + company share of trading. Company balance = that minus expenses.
 - **Installments** are promised fee dates (e.g. 10,000 on the 20th). A payment can be applied to one; if it is
   short, the rest is moved to a new date. The dashboard lists overdue, due-today and upcoming installments.
   Fees should be collected within 15 days of enrollment (courses last 30-40 days).

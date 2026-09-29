@@ -74,19 +74,25 @@ export interface PartnerTotals {
   totalCollected: number;
   totalRemaining: number;
   projectedShare: number;
+  /** Share earned on student fees actually collected. */
   earnedShare: number;
   pendingShare: number;
+  /** Share earned from trading payouts. */
+  tradingShare: number;
+  /** Course share plus trading share. */
+  totalEarned: number;
   totalPaidOut: number;
   balance: number;
 }
 
 export async function partnerTotals(partnerId: string): Promise<PartnerTotals> {
-  const [shares, earnedAgg, payoutAgg] = await Promise.all([
+  const [shares, earnedAgg, tradingAgg, payoutAgg] = await Promise.all([
     prisma.studentShare.findMany({
       where: { partnerId },
       include: { student: { select: { finalPrice: true, status: true, payments: { select: { amount: true } } } } },
     }),
     prisma.paymentShare.aggregate({ where: { partnerId }, _sum: { amount: true } }),
+    prisma.tradingPayoutShare.aggregate({ where: { partnerId }, _sum: { amount: true } }),
     prisma.payout.aggregate({ where: { partnerId }, _sum: { amount: true } }),
   ]);
 
@@ -94,6 +100,8 @@ export async function partnerTotals(partnerId: string): Promise<PartnerTotals> {
   const totalCollected = round2(shares.reduce((s, sh) => s + sh.student.payments.reduce((a, p) => a + num(p.amount), 0), 0));
   const projectedShare = round2(shares.reduce((s, sh) => s + (num(sh.student.finalPrice) * num(sh.percent)) / 100, 0));
   const earnedShare = num(earnedAgg._sum.amount);
+  const tradingShare = num(tradingAgg._sum.amount);
+  const totalEarned = round2(earnedShare + tradingShare);
   const totalPaidOut = num(payoutAgg._sum.amount);
 
   return {
@@ -105,7 +113,9 @@ export async function partnerTotals(partnerId: string): Promise<PartnerTotals> {
     projectedShare,
     earnedShare,
     pendingShare: round2(projectedShare - earnedShare),
+    tradingShare,
+    totalEarned,
     totalPaidOut,
-    balance: round2(earnedShare - totalPaidOut),
+    balance: round2(totalEarned - totalPaidOut),
   };
 }

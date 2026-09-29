@@ -90,6 +90,8 @@ model Partner {
   teacher         Teacher?              @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   isActive        Boolean               @default(true)
   subjectDefaults SubjectShareDefault[]
+  tradingDefault  TradingShareDefault?
+  tradingShares   TradingPayoutShare[]
   studentShares   StudentShare[]
   paymentShares   PaymentShare[]
   payouts         Payout[]
@@ -235,6 +237,43 @@ model Payout {
 
   @@index([partnerId])
   @@index([paidAt])
+}
+
+// Money earned from trading, shared between the members and the company.
+// Separate from student fees: this is income the academy generates itself.
+model TradingPayout {
+  id         String               @id @default(cuid())
+  title      String?
+  amount     Decimal              @db.Decimal(12, 2)
+  occurredAt DateTime             @default(now())
+  note       String?
+  shares     TradingPayoutShare[]
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@index([occurredAt])
+}
+
+// Snapshot of how one trading payout was split. Company keeps amount - sum(amount).
+model TradingPayoutShare {
+  id              String        @id @default(cuid())
+  tradingPayoutId String
+  tradingPayout   TradingPayout @relation(fields: [tradingPayoutId], references: [id], onDelete: Cascade)
+  partnerId       String
+  partner         Partner       @relation(fields: [partnerId], references: [id])
+  percent         Decimal       @db.Decimal(5, 2)
+  amount          Decimal       @db.Decimal(12, 2)
+
+  @@unique([tradingPayoutId, partnerId])
+  @@index([partnerId])
+}
+
+// Default split applied to a new trading payout.
+model TradingShareDefault {
+  id        String  @id @default(cuid())
+  partnerId String  @unique
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  percent   Decimal @db.Decimal(5, 2)
 }
 
 // Company running costs, paid out of the company share.

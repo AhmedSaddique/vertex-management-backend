@@ -66,19 +66,21 @@ async function main() {
   const uzair = await upsertTeacher({ name: "Uzair", email: "uzair@vertex.com", password: teacherPassword, subjectIds: [binary.id] });
   const hamza = await upsertTeacher({ name: "Hamza", email: "hamza@vertex.com", password: teacherPassword, subjectIds: [forex.id, crypto.id] });
 
-  // Default fee splits (company keeps the remainder):
-  //   Forex / Crypto: Hamza 30, Uzair 30, Management 20  -> company 20
-  //   Binary:         Uzair 50, Management 20            -> company 30
-  const forexSplit = [
-    { partnerId: hamza.id, percent: 30 },
-    { partnerId: uzair.id, percent: 30 },
+  // Academy policy: every member takes 20% of every course, the company keeps 40%.
+  const courseSplit = [
+    { partnerId: hamza.id, percent: 20 },
+    { partnerId: uzair.id, percent: 20 },
     { partnerId: management.id, percent: 20 },
   ];
-  const binarySplit = [
-    { partnerId: uzair.id, percent: 50 },
-    { partnerId: management.id, percent: 20 },
-  ];
-  const created = [await setDefaults(forex.id, forexSplit), await setDefaults(crypto.id, forexSplit), await setDefaults(binary.id, binarySplit)];
+  const created = [await setDefaults(forex.id, courseSplit), await setDefaults(crypto.id, courseSplit), await setDefaults(binary.id, courseSplit)];
+
+  // Trading income: 25% to each member, the company keeps 25%.
+  if ((await prisma.tradingShareDefault.count()) === 0) {
+    await prisma.tradingShareDefault.createMany({
+      data: [hamza.id, uzair.id, management.id].map((partnerId) => ({ partnerId, percent: 25 })),
+    });
+    console.log("Trading split seeded: 25% each member, 25% company");
+  }
 
   // Students that still carry the old single-teacher share get the new subject defaults.
   if (created.some(Boolean)) {

@@ -77,7 +77,7 @@ export async function getPartnerSummary(partnerId: string) {
   const partner = await prisma.partner.findUnique({ where: { id: partnerId }, include: partnerInclude });
   if (!partner) throw notFound("Partner not found");
 
-  const [totals, shares, payouts, recentShares, monthly, earnedByStudent] = await Promise.all([
+  const [totals, shares, payouts, recentShares, monthly, earnedByStudent, tradingShares] = await Promise.all([
     partnerTotals(partnerId),
     prisma.studentShare.findMany({
       where: { partnerId },
@@ -102,6 +102,12 @@ export async function getPartnerSummary(partnerId: string) {
     }),
     monthlyBreakdown(6, partnerId),
     prisma.paymentShare.findMany({ where: { partnerId }, select: { amount: true, payment: { select: { studentId: true } } } }),
+    prisma.tradingPayoutShare.findMany({
+      where: { partnerId },
+      include: { tradingPayout: { select: { id: true, title: true, amount: true, occurredAt: true } } },
+      orderBy: { tradingPayout: { occurredAt: "desc" } },
+      take: 15,
+    }),
   ]);
 
   const earnedMap = new Map<string, number>();
@@ -135,5 +141,14 @@ export async function getPartnerSummary(partnerId: string) {
     share: ps.amount,
   }));
 
-  return { partner, totals, students, payouts, recentPayments, monthly };
+  const tradingPayouts = tradingShares.map((ts) => ({
+    id: ts.tradingPayout.id,
+    title: ts.tradingPayout.title,
+    occurredAt: ts.tradingPayout.occurredAt,
+    total: ts.tradingPayout.amount,
+    percent: ts.percent,
+    share: ts.amount,
+  }));
+
+  return { partner, totals, students, payouts, recentPayments, tradingPayouts, monthly };
 }

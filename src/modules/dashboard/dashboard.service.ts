@@ -3,10 +3,11 @@ import { num, round2 } from "../../common/utils/money";
 import { companyTotals, monthlyBreakdown, partnerTotals } from "../finance/finance.service";
 import { listDue } from "../installments/installments.service";
 import { paymentInclude, shapePayment } from "../payments/payments.service";
+import { listTradingPayouts } from "../trading/trading.service";
 
 /** Company-wide overview for the admin dashboard and the company account page. */
 export async function getOverview() {
-  const [finance, statusGroups, subjects, partners, recentPayments, recentStudents, monthly, due] = await Promise.all([
+  const [finance, statusGroups, subjects, partners, recentPayments, recentStudents, monthly, due, trading] = await Promise.all([
     companyTotals(),
     prisma.student.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.subject.findMany({
@@ -25,6 +26,7 @@ export async function getOverview() {
     }),
     monthlyBreakdown(6),
     listDue(7),
+    listTradingPayouts({}),
   ]);
 
   const countOf = (status: string) => statusGroups.find((g) => g.status === status)?._count._all ?? 0;
@@ -62,5 +64,6 @@ export async function getOverview() {
     recentStudents,
     monthly,
     due,
+    trading: { summary: trading.summary, recent: trading.payouts.slice(0, 5) },
   };
 }
