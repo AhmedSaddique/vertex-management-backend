@@ -87,8 +87,8 @@ Two events send email, each as a student copy and a team copy:
 
 | Event | Student receives | Team receives (NOTIFY_EMAILS) |
 |---|---|---|
-| Student enrolls | admission number, course, teacher, mode of class, fee, discount, total payable, agreed payment dates | the same plus phone and father name, and a link to the record |
-| Payment recorded | amount received, total fee, paid so far, remaining balance, next due date | the same plus how the payment was split between partners and the company |
+| Student enrolls | "Your admission is confirmed", admission number, course, teacher, mode of class, total fee, amount received, remaining amount and the agreed dates | the same plus phone, father name, **each member percentage and amount**, the company percentage, and a link to the record |
+| Payment recorded | amount received, total fee, paid so far, remaining amount, next instalment date | the same plus **each member percentage and amount** and the company share |
 
 - Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM and NOTIFY_EMAILS (see .env.example).
   For Gmail, create an App Password; the normal account password is rejected.
@@ -99,8 +99,16 @@ Two events send email, each as a student copy and a team copy:
 - `MAIL_DRIVER=json` builds the messages and logs them instead of delivering, for local checks.
 - A student only gets their copy if their record has an email address.
 
-## Trading payouts
+## Company loans
 
+Money someone takes out of the company for a while and pays back later. A loan is **not** an
+expense: it is money the company is owed, so it lowers cash in hand while it is outstanding and
+leaves company income and the company balance untouched. Each loan tracks its repayments and shows
+OPEN, PARTIAL or CLEARED, and the page totals who still owes what. Admin only: `GET/POST /api/loans`,
+`PUT/DELETE /api/loans/:id`, `POST /api/loans/:id/repayments`, `POST /api/loans/:id/clear`,
+`DELETE /api/loans/repayments/:repaymentId`.
+
+## Trading payouts
 Income the academy earns from trading, kept separate from student fees. Each payout is split at the
 moment it is recorded: by default 25% to each of the three members and 25% to the company. The split
 comes from `TradingShareDefault` and can be changed per payout. Member shares add to their payable
