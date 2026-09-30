@@ -7,6 +7,8 @@ export const slotInclude = {
   teacher: { select: { id: true, phone: true, user: { select: { name: true, email: true } } } },
   subject: { select: { id: true, name: true } },
   students: {
+    // Completed and dropped students are not part of a running class.
+    where: { status: "ACTIVE" },
     select: { id: true, admissionNo: true, name: true, fatherName: true, phone: true, fatherPhone: true, email: true, status: true, classMode: true, teacherId: true, availableSlots: true },
     orderBy: { name: "asc" },
   },
@@ -15,6 +17,16 @@ export const slotInclude = {
 const DAY_LABEL: Record<Weekday, string> = {
   MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu", FRI: "Fri", SAT: "Sat", SUN: "Sun",
 };
+
+/** Keeps only students who are still active, so a finished course cannot be added back. */
+async function activeOnly(studentIds: string[]): Promise<{ id: string }[]> {
+  if (studentIds.length === 0) return [];
+  const rows = await prisma.student.findMany({
+    where: { id: { in: studentIds }, status: "ACTIVE" },
+    select: { id: true },
+  });
+  return rows.map((r) => ({ id: r.id }));
+}
 
 export async function listSlots(f: SlotFilters) {
   return prisma.classSlot.findMany({
@@ -75,7 +87,7 @@ export async function createSlot(input: CreateSlotInput) {
       location: input.location || null,
       notes: input.notes || null,
       isActive: input.isActive ?? true,
-      ...(input.studentIds ? { students: { connect: input.studentIds.map((id) => ({ id })) } } : {}),
+      ...(input.studentIds ? { students: { connect: await activeOnly(input.studentIds) } } : {}),
     },
     include: slotInclude,
   });
@@ -100,7 +112,7 @@ export async function updateSlot(id: string, input: UpdateSlotInput) {
       ...(input.subjectId !== undefined ? { subjectId: input.subjectId } : {}),
       ...(input.location !== undefined ? { location: input.location || null } : {}),
       ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
-      ...(input.studentIds ? { students: { set: input.studentIds.map((sid) => ({ id: sid })) } } : {}),
+      ...(input.studentIds ? { students: { set: await activeOnly(input.studentIds) } } : {}),
       teacherId,
       days,
       startTime,
@@ -116,7 +128,7 @@ export async function setSlotStudents(id: string, studentIds: string[]) {
   if (!existing) throw notFound("Class not found");
   return prisma.classSlot.update({
     where: { id },
-    data: { students: { set: studentIds.map((sid) => ({ id: sid })) } },
+    data: { students: { set: await activeOnly(studentIds) } },
     include: slotInclude,
   });
 }

@@ -63,6 +63,11 @@ src/modules/<name>/           routes -> controller -> service -> schema
 
 ## Class schedule
 
+- A class roster only contains students whose status is Active. Marking a student Completed or
+  Dropped takes them off every class automatically, and they can no longer be added to one.
+- The student picker offers only active students, and by default only those whose available time
+  slots cover that class time. The filter can be unticked to see the rest.
+
 - A `ClassSlot` is a recurring class: teacher, subject, days of the week, start/end time (24h `HH:MM`), location, and the students who attend.
 - A teacher cannot have two active classes that overlap on the same day (the API returns 409).
 - Fixed time slots (default 3:00-4:30 PM, 4:30-6:00 PM, ... 9:00-10:30 PM) are stored in the `Setting` table and editable by admin from Settings. They drive the timetable grid rows and the slot picker when adding a class; any custom time is still allowed.

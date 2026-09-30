@@ -152,6 +152,8 @@ export async function updateStudent(id: string, input: UpdateStudentInput) {
       ...(input.subjectId !== undefined ? { subjectId: input.subjectId } : {}),
       ...(input.teacherId !== undefined ? { teacherId: input.teacherId } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      // A finished or dropped course leaves the class schedule.
+      ...(input.status !== undefined && input.status !== "ACTIVE" ? { classSlots: { set: [] } } : {}),
       ...(input.classMode !== undefined ? { classMode: input.classMode } : {}),
       ...(input.enrolledAt !== undefined ? { enrolledAt: input.enrolledAt } : {}),
       ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
