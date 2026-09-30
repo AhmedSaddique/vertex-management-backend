@@ -70,7 +70,7 @@ src/modules/<name>/           routes -> controller -> service -> schema
 
 - A `ClassSlot` is a recurring class: teacher, subject, days of the week, start/end time (24h `HH:MM`), location, and the students who attend.
 - A teacher cannot have two active classes that overlap on the same day (the API returns 409).
-- Fixed time slots (default 3:00-4:30 PM, 4:30-6:00 PM, ... 9:00-10:30 PM) are stored in the `Setting` table and editable by admin from Settings. They drive the timetable grid rows and the slot picker when adding a class; any custom time is still allowed.
+- Fixed time slots (default 2:30-4:00 PM, 4:00-5:30 PM, 5:30-7:00 PM, 7:00-8:30 PM, 8:30-10:00 PM and a final 10:00-11:00 PM) are stored in the `Setting` table and editable by admin from Settings. They drive the timetable grid rows, the slot picker when adding a class, and the availability a student can be given; any custom time is still allowed.
 - Each student has `fatherPhone` and `availableSlots` (array of `"HH:MM-HH:MM"` keys matching those slots). The schedule Availability view lists, per slot, which students are free and which are already placed in a class.
 - After changing `prisma/schema.prisma`, stop the dev server, then run `npm run db:migrate` (creates + applies a migration and regenerates the client).
 

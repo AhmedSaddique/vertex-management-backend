@@ -12,11 +12,13 @@ export const timeSlotsSchema = z.object({
 
 export type TimeSlot = z.infer<typeof timeSlotSchema>;
 
-// 1.5 hour slots from 3:00 PM onwards. Admin can change these from Settings.
+// Lectures run 1.5 hours from 2:30 PM, with a final one hour class from 10 PM.
+// Admin can change these from Settings.
 export const DEFAULT_TIME_SLOTS: TimeSlot[] = [
-  { start: "15:00", end: "16:30" },
-  { start: "16:30", end: "18:00" },
-  { start: "18:00", end: "19:30" },
-  { start: "19:30", end: "21:00" },
-  { start: "21:00", end: "22:30" },
+  { start: "14:30", end: "16:00" },
+  { start: "16:00", end: "17:30" },
+  { start: "17:30", end: "19:00" },
+  { start: "19:00", end: "20:30" },
+  { start: "20:30", end: "22:00" },
+  { start: "22:00", end: "23:00" },
 ];
