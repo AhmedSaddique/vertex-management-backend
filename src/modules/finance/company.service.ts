@@ -1,5 +1,6 @@
 import { prisma } from "../../database/prisma";
 import { num, round2 } from "../../common/utils/money";
+import { outstandingTotal } from "../loans/loans.service";
 
 /**
  * Company income has two sources:
@@ -24,11 +25,13 @@ export interface CompanyTotals {
   companyBalance: number;
   totalPayouts: number;
   partnerBalanceOwed: number;
+  /** Money taken from the company and not yet paid back. */
+  loansOutstanding: number;
   netCash: number;
 }
 
 export async function companyTotals(): Promise<CompanyTotals> {
-  const [studentAgg, paymentAgg, shareAgg, tradingAgg, tradingShareAgg, payoutAgg, expenseAgg] = await Promise.all([
+  const [studentAgg, paymentAgg, shareAgg, tradingAgg, tradingShareAgg, payoutAgg, expenseAgg, loansOutstanding] = await Promise.all([
     prisma.student.aggregate({ _sum: { finalPrice: true } }),
     prisma.payment.aggregate({ _sum: { amount: true } }),
     prisma.paymentShare.aggregate({ _sum: { amount: true } }),
@@ -36,6 +39,7 @@ export async function companyTotals(): Promise<CompanyTotals> {
     prisma.tradingPayoutShare.aggregate({ _sum: { amount: true } }),
     prisma.payout.aggregate({ _sum: { amount: true } }),
     prisma.expense.aggregate({ _sum: { amount: true } }),
+    outstandingTotal(),
   ]);
 
   const totalFinalPrice = num(studentAgg._sum.finalPrice);
@@ -64,7 +68,8 @@ export async function companyTotals(): Promise<CompanyTotals> {
     companyBalance: round2(companyShare - totalExpenses),
     totalPayouts,
     partnerBalanceOwed: round2(partnerShare + tradingPartnerShare - totalPayouts),
-    netCash: round2(totalCollected + tradingTotal - totalPayouts - totalExpenses),
+    loansOutstanding,
+    netCash: round2(totalCollected + tradingTotal - totalPayouts - totalExpenses - loansOutstanding),
   };
 }
 

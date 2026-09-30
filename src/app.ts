@@ -16,6 +16,7 @@ import { paymentsRouter } from "./modules/payments/payments.routes";
 import { payoutsRouter } from "./modules/payouts/payouts.routes";
 import { expensesRouter } from "./modules/expenses/expenses.routes";
 import { tradingRouter } from "./modules/trading/trading.routes";
+import { loansRouter } from "./modules/loans/loans.routes";
 import { installmentsRouter } from "./modules/installments/installments.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { scheduleRouter } from "./modules/schedule/schedule.routes";
@@ -84,6 +85,7 @@ export function createApp() {
   app.use("/api/payouts", payoutsRouter);
   app.use("/api/expenses", expensesRouter);
   app.use("/api/trading", tradingRouter);
+  app.use("/api/loans", loansRouter);
   app.use("/api/installments", installmentsRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/schedule", scheduleRouter);

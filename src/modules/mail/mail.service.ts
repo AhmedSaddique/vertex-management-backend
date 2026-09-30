@@ -102,9 +102,21 @@ export async function notifyEnrollment(studentId: string): Promise<NotificationR
       subject: { select: { name: true } },
       teacher: { select: { user: { select: { name: true } } } },
       installments: { orderBy: { dueDate: "asc" }, select: { dueDate: true, amount: true } },
+      payments: { select: { amount: true } },
+      shares: { include: { partner: { select: { name: true } } }, orderBy: { percent: "desc" } },
     },
   });
   if (!student) return { studentEmailed: false, teamEmailed: false, skipped: "student not found" };
+
+  const finalPrice = num(student.finalPrice);
+  const paidToDate = round2(student.payments.reduce((sum, p) => sum + num(p.amount), 0));
+  // What each member earns from this fee, and what is left for the company.
+  const shares = student.shares.map((sh) => ({
+    partnerName: sh.partner.name,
+    percent: num(sh.percent),
+    amount: round2((finalPrice * num(sh.percent)) / 100),
+  }));
+  const partnerPercent = round2(shares.reduce((a, s) => a + s.percent, 0));
 
   const data: EnrollmentData = {
     admissionNo: student.admissionNo,
@@ -116,9 +128,14 @@ export async function notifyEnrollment(studentId: string): Promise<NotificationR
     classMode: student.classMode,
     fee: num(student.fee),
     discount: num(student.discount),
-    finalPrice: num(student.finalPrice),
+    finalPrice,
+    paidToDate,
+    remaining: round2(finalPrice - paidToDate),
     enrolledAt: student.enrolledAt,
     installments: student.installments.map((i) => ({ dueDate: i.dueDate, amount: num(i.amount) })),
+    shares,
+    companyPercent: round2(100 - partnerPercent),
+    companyAmount: round2(finalPrice - shares.reduce((a, s) => a + s.amount, 0)),
   };
 
   const [studentEmailed, teamEmailed] = await Promise.all([

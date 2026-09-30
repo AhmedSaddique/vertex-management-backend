@@ -92,6 +92,7 @@ model Partner {
   subjectDefaults SubjectShareDefault[]
   tradingDefault  TradingShareDefault?
   tradingShares   TradingPayoutShare[]
+  loans           CompanyLoan[]
   studentShares   StudentShare[]
   paymentShares   PaymentShare[]
   payouts         Payout[]
@@ -274,6 +275,41 @@ model TradingShareDefault {
   partnerId String  @unique
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   percent   Decimal @db.Decimal(5, 2)
+}
+
+// Money taken out of the company for a while and paid back later. Not an expense:
+// while it is outstanding it is cash the company is owed.
+model CompanyLoan {
+  id           String          @id @default(cuid())
+  // Set when the borrower is one of the members; the name is always stored.
+  partnerId    String?
+  partner      Partner?        @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  borrowerName String
+  amount       Decimal         @db.Decimal(12, 2)
+  takenAt      DateTime        @default(now())
+  reason       String?
+  note         String?
+  repayments   LoanRepayment[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([partnerId])
+  @@index([takenAt])
+}
+
+// A payment back into the company against a loan.
+model LoanRepayment {
+  id        String      @id @default(cuid())
+  loanId    String
+  loan      CompanyLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  amount    Decimal     @db.Decimal(12, 2)
+  paidAt    DateTime    @default(now())
+  note      String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([loanId])
+  @@index([paidAt])
 }
 
 // Company running costs, paid out of the company share.
