@@ -31,6 +31,8 @@ export const studentSchema = z.object({
   status: z.enum(STUDENT_STATUSES).default("ACTIVE"),
   classMode: z.enum(CLASS_MODES).default("PHYSICAL"),
   enrolledAt: z.coerce.date().optional(),
+  // The day the first class takes place.
+  classStartDate: z.coerce.date().optional().nullable(),
   notes: z.string().trim().max(1000).optional().nullable(),
   availableSlots: z
     .array(z.string().regex(slotKeyPattern, "Slot must look like 15:00-16:30"))

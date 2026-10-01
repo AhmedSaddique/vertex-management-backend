@@ -145,6 +145,8 @@ model Student {
   status         StudentStatus  @default(ACTIVE)
   classMode      ClassMode      @default(PHYSICAL)
   enrolledAt     DateTime       @default(now())
+  // The day the student's first class takes place.
+  classStartDate DateTime?
   notes          String?
   // Time slots the student is free for, as "HH:MM-HH:MM" keys (see Settings)
   availableSlots String[]       @default([])

@@ -21,6 +21,7 @@ export interface EnrollmentData {
   paidToDate: number;
   remaining: number;
   enrolledAt: Date;
+  classStartDate: Date | null;
   installments: { dueDate: Date; amount: number }[];
   // Team copy only: what each member earns from this student's fee.
   shares: ShareLine[];
@@ -61,6 +62,7 @@ export function enrollmentStudentMail(d: EnrollmentData): MailMessage {
     ["Teacher", d.teacher],
     ["Mode of class", modeLabel(d.classMode)],
     ["Admission date", shortDate(d.enrolledAt)],
+    ...((d.classStartDate ? [["First class", shortDate(d.classStartDate)]] : []) as Row[]),
     ["Course fee", money(d.fee)],
     ...((d.discount > 0 ? [["Discount", `- ${money(d.discount)}`]] : []) as Row[]),
     ["Total payable", money(d.finalPrice)],
@@ -69,7 +71,7 @@ export function enrollmentStudentMail(d: EnrollmentData): MailMessage {
 
   const { html, text } = layout({
     title: `Your admission is confirmed`,
-    intro: `Welcome to Vertex Trading Academy, <strong>${d.name}</strong>. Your admission is complete and your seat in <strong>${d.subject}</strong> is booked. Your admission number is <strong>#${d.admissionNo}</strong>, please quote it on every payment.`,
+    intro: `Welcome to Vertex Trading Academy, <strong>${d.name}</strong>. Your admission is complete and your seat in <strong>${d.subject}</strong> is booked.${d.classStartDate ? ` Your first class is on <strong>${shortDate(d.classStartDate)}</strong>.` : ""} Your admission number is <strong>#${d.admissionNo}</strong>, please quote it on every payment.`,
     highlight: [
       ["Total fee", money(d.finalPrice)],
       ["Amount received", money(d.paidToDate)],
@@ -93,6 +95,7 @@ export function enrollmentTeamMail(d: EnrollmentData): MailMessage {
     ["Course", d.subject],
     ["Teacher", d.teacher],
     ["Mode of class", modeLabel(d.classMode)],
+    ...((d.classStartDate ? [["First class", shortDate(d.classStartDate)]] : []) as Row[]),
     ["Course fee", money(d.fee)],
     ["Discount", money(d.discount)],
     ["Final price", money(d.finalPrice)],

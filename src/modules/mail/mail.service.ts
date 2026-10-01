@@ -132,6 +132,7 @@ export async function notifyEnrollment(studentId: string): Promise<NotificationR
     paidToDate,
     remaining: round2(finalPrice - paidToDate),
     enrolledAt: student.enrolledAt,
+    classStartDate: student.classStartDate,
     installments: student.installments.map((i) => ({ dueDate: i.dueDate, amount: num(i.amount) })),
     shares,
     companyPercent: round2(100 - partnerPercent),
