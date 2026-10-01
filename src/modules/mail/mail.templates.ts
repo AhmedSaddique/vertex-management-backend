@@ -67,3 +67,10 @@ export function layout(opts: { title: string; intro: string; rows: Row[]; highli
 
   return { html, text };
 }
+
+/** A negative balance means the student paid more than the (discounted) fee. */
+export function remainingLabel(remaining: number): string {
+  if (remaining > 0) return money(remaining);
+  if (remaining === 0) return "Fully paid";
+  return `Fully paid (overpaid by ${money(-remaining)})`;
+}

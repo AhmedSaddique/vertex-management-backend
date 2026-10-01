@@ -53,6 +53,7 @@ export async function createPayment(input: CreatePaymentInput) {
 
   const paid = round2(student.payments.reduce((s, p) => s + num(p.amount), 0));
   const remaining = round2(num(student.finalPrice) - paid);
+  if (remaining <= 0) throw badRequest("This student has already paid the full fee, there is nothing left to collect.");
   if (input.amount > remaining) throw badRequest(`Payment exceeds remaining balance. Remaining: ${remaining}`);
 
   const installment = input.installmentId ? await prisma.installment.findFirst({ where: { id: input.installmentId, studentId: student.id } }) : null;

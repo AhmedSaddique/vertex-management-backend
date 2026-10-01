@@ -135,8 +135,6 @@ export async function updateStudent(id: string, input: UpdateStudentInput) {
   const discount = input.discount ?? num(existing.discount);
   if (discount > fee) throw badRequest("Discount cannot be greater than the fee");
   const finalPrice = round2(fee - discount);
-  const paid = round2(existing.payments.reduce((s, p) => s + num(p.amount), 0));
-  if (finalPrice < paid) throw badRequest(`Final price (${finalPrice}) cannot be less than the amount already paid (${paid})`);
 
   const shares = input.shares ? await resolveShares(input.subjectId ?? existing.subjectId, input.shares) : undefined;
 

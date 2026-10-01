@@ -1,5 +1,5 @@
 import { env } from "../../config/env";
-import { layout, methodLabel, modeLabel, money, shortDate, type MailMessage, type Row } from "./mail.templates";
+import { layout, methodLabel, modeLabel, money, remainingLabel, shortDate, type MailMessage, type Row } from "./mail.templates";
 
 export interface ShareLine {
   partnerName: string;
@@ -73,7 +73,7 @@ export function enrollmentStudentMail(d: EnrollmentData): MailMessage {
     highlight: [
       ["Total fee", money(d.finalPrice)],
       ["Amount received", money(d.paidToDate)],
-      ["Remaining amount", d.remaining <= 0 ? "Fully paid" : money(d.remaining)],
+      ["Remaining amount", remainingLabel(d.remaining)],
     ],
     rows,
     footer: d.installments.length
@@ -97,7 +97,7 @@ export function enrollmentTeamMail(d: EnrollmentData): MailMessage {
     ["Discount", money(d.discount)],
     ["Final price", money(d.finalPrice)],
     ["Received so far", money(d.paidToDate)],
-    ["Remaining", money(d.remaining)],
+    ["Remaining", remainingLabel(d.remaining)],
     ...shareRows(d.shares),
     [`Company (${d.companyPercent}%)`, money(d.companyAmount)],
     ...planRows(d.installments),
@@ -107,7 +107,7 @@ export function enrollmentTeamMail(d: EnrollmentData): MailMessage {
     intro: `${d.name} has been enrolled in ${d.subject} with ${d.teacher}. The share of this fee is listed below.`,
     highlight: [
       ["Final price", money(d.finalPrice)],
-      ["Remaining", money(d.remaining)],
+      ["Remaining", remainingLabel(d.remaining)],
     ],
     rows,
     footer: `Open the student record: <a href="${env.mail.appUrl}/students">${env.mail.appUrl}/students</a>`,
@@ -126,7 +126,7 @@ export function paymentStudentMail(d: PaymentData): MailMessage {
     ["Payment method", methodLabel(d.method)],
     ["Total course fee", money(d.finalPrice)],
     ["Paid so far", money(d.paidToDate)],
-    ["Remaining amount", settled ? "Fully paid" : money(d.remaining)],
+    ["Remaining amount", remainingLabel(d.remaining)],
     ...((d.nextDue ? [[`Next instalment due ${shortDate(d.nextDue.dueDate)}`, money(d.nextDue.amount)]] : []) as Row[]),
   ];
   const { html, text } = layout({
@@ -136,7 +136,7 @@ export function paymentStudentMail(d: PaymentData): MailMessage {
       : `We have received <strong>${money(d.amount)}</strong> from you against admission number <strong>#${d.admissionNo}</strong>. Your remaining amount is <strong>${money(d.remaining)}</strong>.`,
     highlight: [
       ["Amount received", money(d.amount)],
-      ["Remaining amount", settled ? "Fully paid" : money(d.remaining)],
+      ["Remaining amount", remainingLabel(d.remaining)],
     ],
     rows,
     footer: d.nextDue
@@ -158,17 +158,17 @@ export function paymentTeamMail(d: PaymentData): MailMessage {
     ...((d.note ? [["Note", d.note]] : []) as Row[]),
     ["Total course fee", money(d.finalPrice)],
     ["Paid so far", money(d.paidToDate)],
-    ["Remaining amount", money(d.remaining)],
+    ["Remaining amount", remainingLabel(d.remaining)],
     ...((d.nextDue ? [[`Next due ${shortDate(d.nextDue.dueDate)}`, money(d.nextDue.amount)]] : [["Next due", "not scheduled"]]) as Row[]),
     ...shareRows(d.shares),
     ["Company share", money(d.companyShare)],
   ];
   const { html, text } = layout({
     title: `Payment received: ${money(d.amount)} from ${d.name}`,
-    intro: `${d.name} paid ${money(d.amount)}. Remaining balance is ${money(d.remaining)}. The share of this payment is listed below.`,
+    intro: `${d.name} paid ${money(d.amount)}. Remaining balance is ${remainingLabel(d.remaining)}. The share of this payment is listed below.`,
     highlight: [
       ["Amount received", money(d.amount)],
-      ["Remaining amount", d.remaining <= 0 ? "Fully paid" : money(d.remaining)],
+      ["Remaining amount", remainingLabel(d.remaining)],
     ],
     rows,
     footer: `Open the student record: <a href="${env.mail.appUrl}/students/${d.studentId}">${env.mail.appUrl}/students/${d.studentId}</a>`,
