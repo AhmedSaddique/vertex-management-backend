@@ -9,4 +9,5 @@ studentsRouter.get("/", ctrl.list);
 studentsRouter.post("/", requireAdmin, ctrl.create);
 studentsRouter.get("/:id", ctrl.getOne);
 studentsRouter.put("/:id", requireAdmin, ctrl.update);
+studentsRouter.post("/:id/reminder", requireAdmin, ctrl.sendReminder);
 studentsRouter.delete("/:id", requireAdmin, ctrl.remove);

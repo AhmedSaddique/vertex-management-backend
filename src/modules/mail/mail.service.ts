@@ -3,6 +3,7 @@ import { env } from "../../config/env";
 import { prisma } from "../../database/prisma";
 import { num, round2 } from "../../common/utils/money";
 import type { MailMessage } from "./mail.templates";
+import { reminderStudentMail, reminderTeamMail, type ReminderData, type ReminderDue } from "./mail.reminder";
 import {
   enrollmentStudentMail,
   enrollmentTeamMail,
@@ -215,4 +216,70 @@ export function mailStatus() {
     driver: env.mail.driver,
     recipients: env.mail.notify.length,
   };
+}
+
+/**
+ * Fee reminder on demand: what is past its due date and what is left on the course.
+ * Returns a reason instead of throwing when there is nothing to chase.
+ */
+export async function notifyReminder(studentId: string): Promise<NotificationResult> {
+  const skip = unconfigured();
+  if (skip) return skip;
+
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    include: {
+      subject: { select: { name: true } },
+      teacher: { select: { user: { select: { name: true } } } },
+      payments: { select: { amount: true } },
+      installments: { orderBy: { dueDate: "asc" } },
+    },
+  });
+  if (!student) return { studentEmailed: false, teamEmailed: false, skipped: "student not found" };
+
+  const finalPrice = num(student.finalPrice);
+  const paidToDate = round2(student.payments.reduce((sum, p) => sum + num(p.amount), 0));
+  const remaining = round2(finalPrice - paidToDate);
+  if (remaining <= 0) {
+    return { studentEmailed: false, teamEmailed: false, skipped: "this student has paid the full fee" };
+  }
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const dues: ReminderDue[] = student.installments
+    .map((i) => {
+      const left = round2(num(i.amount) - num(i.paidAmount));
+      const overdue = left > 0 && i.dueDate < startOfToday;
+      return {
+        dueDate: i.dueDate,
+        amount: num(i.amount),
+        remaining: left,
+        overdue,
+        daysLate: overdue ? Math.round((startOfToday.getTime() - i.dueDate.getTime()) / 86400000) : 0,
+      };
+    })
+    .filter((d) => d.remaining > 0);
+
+  const overdueDues = dues.filter((d) => d.overdue);
+  const data: ReminderData = {
+    studentId: student.id,
+    admissionNo: student.admissionNo,
+    name: student.name,
+    subject: student.subject.name,
+    teacher: student.teacher.user.name,
+    finalPrice,
+    paidToDate,
+    remaining,
+    overdueAmount: round2(overdueDues.reduce((a, d) => a + d.remaining, 0)),
+    overdueCount: overdueDues.length,
+    oldestOverdue: overdueDues[0]?.dueDate ?? null,
+    dues,
+  };
+
+  const [studentEmailed, teamEmailed] = await Promise.all([
+    student.email ? send([student.email], reminderStudentMail(data)) : Promise.resolve(false),
+    send(env.mail.notify, reminderTeamMail(data)),
+  ]);
+
+  return { studentEmailed, teamEmailed, skipped: student.email ? undefined : "student has no email address" };
 }

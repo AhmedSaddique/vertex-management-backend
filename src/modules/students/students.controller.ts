@@ -4,6 +4,7 @@ import { param } from "../../common/utils/params";
 import { serialize } from "../../common/utils/money";
 import { CLASS_MODES, STUDENT_STATUSES, studentSchema, updateStudentSchema, type ClassModeValue, type StudentStatusValue } from "./students.schema";
 import * as service from "./students.service";
+import { notifyReminder } from "../mail/mail.service";
 
 const qs = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 
@@ -36,6 +37,11 @@ export async function create(req: Request, res: Response) {
 export async function update(req: Request, res: Response) {
   const input = updateStudentSchema.parse(req.body);
   res.json(serialize(await service.updateStudent(param(req), input)));
+}
+
+// Emails the student what is overdue and what is left to pay.
+export async function sendReminder(req: Request, res: Response) {
+  res.json(serialize(await notifyReminder(param(req))));
 }
 
 export async function remove(req: Request, res: Response) {

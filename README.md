@@ -94,6 +94,7 @@ Two events send email, each as a student copy and a team copy:
 |---|---|---|
 | Student enrolls | "Your admission is confirmed", admission number, course, teacher, mode of class, total fee, amount received, remaining amount and the agreed dates | the same plus phone, father name, **each member percentage and amount**, the company percentage, and a link to the record |
 | Payment recorded | amount received, total fee, paid so far, remaining amount, next instalment date | the same plus **each member percentage and amount** and the company share |
+| Fee reminder (sent on demand) | what is overdue, total fee, paid so far and the remaining amount | the same plus the dated breakdown of every unpaid date and a link to the record |
 
 - Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM and NOTIFY_EMAILS (see .env.example).
   For Gmail, create an App Password; the normal account password is rejected.
@@ -103,6 +104,8 @@ Two events send email, each as a student copy and a team copy:
   errors are logged only. The create responses carry a `notification` object so the UI can say what was sent.
 - `MAIL_DRIVER=json` builds the messages and logs them instead of delivering, for local checks.
 - A student only gets their copy if their record has an email address.
+- Reminders are sent by hand from the student page: `POST /api/students/:id/reminder` (admin). It is
+  refused with a reason when the fee is already paid in full.
 
 ## Company loans
 
